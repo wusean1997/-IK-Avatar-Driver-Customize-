@@ -6,7 +6,7 @@
     [CustomEditor(typeof(AvatarDriver))]
     public class Editor_AvatarDriver : Editor
     {
-        private bool showCurrentIKDriverTargets, showCurrentIKTargetObjects, showIKSteeringWheelTargets, showOtherIKTargetObjects, showObjectParents, showIKPickIKTargets, showPickObjects, showLookTarget;
+        private bool showCurrentIKDriverTargets, showCurrentIKTargetObjects, showIKSteeringWheelTargets, showOtherIKTargetObjects, showObjectParents, showIKPickIKTargets, showPickObjects, showLookTarget, showHand, showIKGestureTargets;
 
         public override void OnInspectorGUI()
         {
@@ -115,8 +115,11 @@
                 SerializedProperty Head = serializedObject.FindProperty("Head");
                 EditorGUILayout.PropertyField(Head, true);
 
-                SerializedProperty Headsubstitude = serializedObject.FindProperty("Headsubstitude");
-                EditorGUILayout.PropertyField(Headsubstitude, true);
+                SerializedProperty HeadSubstitude = serializedObject.FindProperty("HeadSubstitude");
+                EditorGUILayout.PropertyField(HeadSubstitude, true);
+
+                SerializedProperty GlassesSubstitude = serializedObject.FindProperty("GlassesSubstitude");
+                EditorGUILayout.PropertyField(GlassesSubstitude, true); 
 
                 if (EditorGUI.EndChangeCheck())
                     serializedObject.ApplyModifiedProperties();
@@ -166,6 +169,114 @@
 
                 SerializedProperty Center = serializedObject.FindProperty("Center");
                 EditorGUILayout.PropertyField(Center, true);
+
+                if (EditorGUI.EndChangeCheck())
+                    serializedObject.ApplyModifiedProperties();
+                EditorGUILayout.EndVertical();
+            }
+
+            if (EditorGUI.EndChangeCheck())
+                serializedObject.ApplyModifiedProperties();
+
+            showIKGestureTargets = EditorGUILayout.Foldout(showIKGestureTargets, "Gesture", true);
+            if (showIKGestureTargets)
+            {
+                EditorGUILayout.BeginVertical("Box");
+                EditorGUI.BeginChangeCheck();
+
+                SerializedProperty Gesture = serializedObject.FindProperty("Gesture");
+                EditorGUILayout.PropertyField(Gesture, true);
+
+                SerializedProperty Gesture_1 = serializedObject.FindProperty("Gesture_1");
+                EditorGUILayout.PropertyField(Gesture_1, true);
+
+                SerializedProperty Gesture_2 = serializedObject.FindProperty("Gesture_2");
+                EditorGUILayout.PropertyField(Gesture_2, true);
+
+                SerializedProperty Gesture_3 = serializedObject.FindProperty("Gesture_3");
+                EditorGUILayout.PropertyField(Gesture_3, true);
+
+                SerializedProperty Gesture_4 = serializedObject.FindProperty("Gesture_4");
+                EditorGUILayout.PropertyField(Gesture_4, true);
+
+                SerializedProperty Gesture_5 = serializedObject.FindProperty("Gesture_5");
+                EditorGUILayout.PropertyField(Gesture_5, true);
+
+                SerializedProperty Gesture_6 = serializedObject.FindProperty("Gesture_6");
+                EditorGUILayout.PropertyField(Gesture_6, true);
+
+                SerializedProperty Gesture_7 = serializedObject.FindProperty("Gesture_7");
+                EditorGUILayout.PropertyField(Gesture_7, true);
+
+                SerializedProperty Gesture_8 = serializedObject.FindProperty("Gesture_8"); 
+                EditorGUILayout.PropertyField(Gesture_8, true);
+
+                SerializedProperty Gesture_9 = serializedObject.FindProperty("Gesture_9");
+                EditorGUILayout.PropertyField(Gesture_9, true);
+
+                SerializedProperty Gesture_10 = serializedObject.FindProperty("Gesture_10");
+                EditorGUILayout.PropertyField(Gesture_10, true);
+
+                SerializedProperty Gesture_11 = serializedObject.FindProperty("Gesture_11");
+                EditorGUILayout.PropertyField(Gesture_11, true);
+
+                SerializedProperty Gesture_12 = serializedObject.FindProperty("Gesture_12");
+                EditorGUILayout.PropertyField(Gesture_12, true);
+
+                SerializedProperty Gesture_13 = serializedObject.FindProperty("Gesture_13");
+                EditorGUILayout.PropertyField(Gesture_13, true);
+
+                SerializedProperty Gesture_14 = serializedObject.FindProperty("Gesture_14");
+                EditorGUILayout.PropertyField(Gesture_14, true);
+
+                SerializedProperty Gesture_15 = serializedObject.FindProperty("Gesture_15");
+                EditorGUILayout.PropertyField(Gesture_15, true);
+
+                if (EditorGUI.EndChangeCheck())
+                    serializedObject.ApplyModifiedProperties();
+                EditorGUILayout.EndVertical();
+            }
+
+            showHand = EditorGUILayout.Foldout(showHand, "GestureHand", true);
+            if (showHand)
+            {
+                EditorGUILayout.BeginVertical("Box");
+                EditorGUI.BeginChangeCheck();
+
+                SerializedProperty Index_1 = serializedObject.FindProperty("Index_1");
+                EditorGUILayout.PropertyField(Index_1, true);
+                SerializedProperty Index_2 = serializedObject.FindProperty("Index_2");
+                EditorGUILayout.PropertyField(Index_2, true);
+                SerializedProperty Index_3 = serializedObject.FindProperty("Index_3");
+                EditorGUILayout.PropertyField(Index_3, true);
+
+                SerializedProperty Middle_1 = serializedObject.FindProperty("Middle_1");
+                EditorGUILayout.PropertyField(Middle_1, true);
+                SerializedProperty Middle_2 = serializedObject.FindProperty("Middle_2");
+                EditorGUILayout.PropertyField(Middle_2, true);
+                SerializedProperty Middle_3 = serializedObject.FindProperty("Middle_3");
+                EditorGUILayout.PropertyField(Middle_3, true);
+
+                SerializedProperty Ring_1 = serializedObject.FindProperty("Ring_1");
+                EditorGUILayout.PropertyField(Ring_1, true);
+                SerializedProperty Ring_2 = serializedObject.FindProperty("Ring_2");
+                EditorGUILayout.PropertyField(Ring_2, true);
+                SerializedProperty Ring_3 = serializedObject.FindProperty("Ring_3");
+                EditorGUILayout.PropertyField(Ring_3, true);
+
+                SerializedProperty Pinky_1 = serializedObject.FindProperty("Pinky_1");
+                EditorGUILayout.PropertyField(Pinky_1, true);
+                SerializedProperty Pinky_2 = serializedObject.FindProperty("Pinky_2");
+                EditorGUILayout.PropertyField(Pinky_2, true);
+                SerializedProperty Pinky_3 = serializedObject.FindProperty("Pinky_3");
+                EditorGUILayout.PropertyField(Pinky_3, true);
+
+                SerializedProperty Thumb_1 = serializedObject.FindProperty("Thumb_1");
+                EditorGUILayout.PropertyField(Thumb_1, true);
+                SerializedProperty Thumb_2 = serializedObject.FindProperty("Thumb_2");
+                EditorGUILayout.PropertyField(Thumb_2, true);
+                SerializedProperty Thumb_3 = serializedObject.FindProperty("Thumb_3");
+                EditorGUILayout.PropertyField(Thumb_3, true);
 
                 if (EditorGUI.EndChangeCheck())
                     serializedObject.ApplyModifiedProperties();

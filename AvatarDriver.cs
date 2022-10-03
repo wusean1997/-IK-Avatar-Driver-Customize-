@@ -22,9 +22,12 @@
         public Text gearText; // when this text changes a shift will be triggered
         public Transform Hip, Jaw;
         public Transform Look_01, Look_02, Look_03, Look_04, Look_05, Look_06, Look_07, Look_08;
-        public Transform Object_pA, Object_pB, Object_pC, Object_pD, handTemp, handTempIK, Head, Headsubstitude;   //Object Parents
+        public Transform Object_pA, Object_pB, Object_pC, Object_pD, handTemp, handTempIK, Head, HeadSubstitude, GlassesSubstitude;   //Object Parents
         public Transform Object_A, Object_B, Object_C, Object_D, Mouth, Beer_Mouth, Face, Hand, phoneHand,  Finger, Center;          //Pick IK Target A:Beer B:Phone C:Box D:Cigarette
+        public Transform  Gesture, Gesture_1, Gesture_2, Gesture_3, Gesture_4, Gesture_5, Gesture_6, Gesture_7;
+        public Transform  Gesture_8, Gesture_9, Gesture_10, Gesture_11, Gesture_12, Gesture_13, Gesture_14, Gesture_15;
         public GameObject Beer, Glasses, Cigarette, Phone;                                                           //Pick Objects
+        public Transform Index_1, Index_2, Index_3, Middle_1, Middle_2, Middle_3, Ring_1, Ring_2, Ring_3, Pinky_1, Pinky_2, Pinky_3, Thumb_1, Thumb_2, Thumb_3;
         public Transform headLookIKCP, targetLeftHandIK, targetRightHandIK, targetRightFootIK, targetLeftFootIK; // Avatar IK control points
         public Transform leftHandObj, rightHandObj, leftFootObj, rightFootObj;							 // current IK targets
         public Transform lhswt_W, lhswt_NW, lhswt_N, lhswt_NE, lhswt_E, lhswt_SE, lhswt_S, lhswt_SW;             // left hand steering wheel IK targets
@@ -68,7 +71,8 @@
         private int step = 0;
         private int run = 0;
         private int look = 0;
-        private bool take = true;
+        private int look_max = 9;
+        //private bool take = true;
         private bool over = false;
         private bool get = false;
         private bool init = false;
@@ -76,9 +80,9 @@
         private float timeCount = 0.0f;
         private float[] holdingTime = {1.0f, 3.0f, 5.0f, 10.0f}; //sec
         private float angle, dist;
-        private float threthold = 0.1f;
-        private Vector3 objOriginalPosition, buffer_OriginalPosition;
-        private Quaternion objOriginalRotation, buffer_OriginalRotation;
+        private float threthold = 0.00001f;
+        private Vector3 objOriginalPosition, buffer_OriginalPosition, buffer_HeadPosition;
+        private Quaternion objOriginalRotation, buffer_OriginalRotation, buffer_HeadRotation;
         public Vector3 original_hip;
 
         public class Parameter
@@ -97,8 +101,17 @@
         private int count = 0;
         public bool use = false;
         private float Timedelate;
-        private Vector3[] original_localposition = new Vector3[4];
-        private Quaternion[] original_localrotation = new Quaternion[4];
+        private float time = 0;
+        private int finger = 0;
+
+        private Vector3[,] finger_rotation = new Vector3[5,3];
+        private Transform[,] finger_list = new Transform[5,3];
+        private bool[] gate = {false, false, false};
+        private Transform[] lookTargetList = new Transform[9];
+        private Transform[] gestureTargetList = new Transform[16];
+        private int gestureIndex = 0;
+        private int gestureIndex_max = 16;
+        public static bool[] behaviorState = new bool[4];
 
         #region Register callbacks and variables
         void OnEnable()
@@ -243,27 +256,32 @@
                     auto_param[i, 3] = param[i].eme;
                 }
             }
+            Transform[,] Finger_list = {{Index_1, Index_2, Index_3}, 
+                                        {Middle_1, Middle_2, Middle_3}, 
+                                        {Ring_1, Ring_2, Ring_3}, 
+                                        {Pinky_1, Pinky_2, Pinky_3}, 
+                                        {Thumb_1, Thumb_2, Thumb_3}};
+            finger_list = Finger_list;
+
+            Transform[] Look_list = {headLookIKCP, Look_01, Look_02, 
+                                        Look_03, Look_04, Look_05,
+                                        Look_06, Look_07, Look_08};
+            
+            lookTargetList = Look_list;
+
+            Transform[] Gesture_List = {Gesture, Gesture_1, Gesture_2, Gesture_3,
+                                        Gesture_4, Gesture_5, Gesture_6, Gesture_7,
+                                        Gesture_8, Gesture_9, Gesture_10, Gesture_11,
+                                        Gesture_12, Gesture_13, Gesture_14, Gesture_15};
+
+            gestureTargetList = Gesture_List;
         }
 
         void Update(){
-            //original_localposition[0] = Beer_Mouth.localPosition;
-            //original_localposition[1] = Mouth.localPosition;
-            //original_localposition[2] = Face.localPosition;
-
-            //original_localrotation[0] = Beer_Mouth.localRotation;
-            //original_localrotation[1] = Mouth.localRotation;
-            //original_localrotation[2] = Face.localRotation;
-
-            Headsubstitude.position = Head.position;
-            Headsubstitude.rotation = Head.rotation;
-
-            //Beer_Mouth.localPosition = original_localposition[0];
-            //Mouth.localPosition = original_localposition[1];
-            //Face.localPosition = original_localposition[2];
-
-            //Beer_Mouth.localRotation = original_localrotation[0];
-            //Mouth.localRotation = original_localrotation[1];
-            //Face.localRotation = original_localrotation[2];
+            Object_C.position = GlassesSubstitude.position;
+            Object_C.rotation = GlassesSubstitude.rotation;
+            HeadSubstitude.position = Head.position;
+            HeadSubstitude.rotation = Head.rotation;
         }
 
         void OnAnimatorIK()
@@ -271,8 +289,7 @@
             deltaTime = Time.deltaTime;
             if (animator && avatarSettings.ikActive && rightHandObj != null)
             {   
-                print("Mouth_pos:" + Mouth.position.ToString());
-                print("Mouth_rot:" + Mouth.rotation.ToString());
+
                 SetShiftState();
                 SetIKValues(AvatarIKGoal.LeftHand, 1, 1, targetLeftHandIK.position, targetLeftHandIK.rotation);
                 SetIKValues(AvatarIKGoal.RightHand, 1, 1, targetRightHandIK.position, targetRightHandIK.rotation);
@@ -283,9 +300,46 @@
                 UpdateHandTransforms();
                 UpdateFootTransforms();
                 Realistic();
-
+                
                 switch (run) {
+                    /*
                     case 0:
+                        if(!get){
+                            UpdateIKTargetTransforms("TkoGlasses");
+                            UnPack(targetRightHandIK, handTemp);
+                        }
+                        else{
+                            get = false;
+                            Pack(targetRightHandIK, steeringWheel);
+                            run = 2;
+                        }  
+                        break;        
+
+                    case 1:
+                        if(!get){
+                            UpdateIKTargetTransforms("WearGlasses");
+                            UnPack(targetRightHandIK, handTemp);
+                        }
+                        else{
+                            get = false;
+                            Pack(targetRightHandIK, steeringWheel);
+                            run = 2;
+                        }  
+                        break;
+                    */   
+                    
+                    case 0:
+                        timeCount += Time.deltaTime;
+                        UpdateIKTargetTransforms("shifting");
+                        UpdateIKLook("normal", 1);
+
+                        if (timeCount > 5f){
+                            run++;
+                            timeCount = 0;
+                        }
+                        break;
+
+                    case 1:
                         if (!get){
                             UpdateIKTargetTransforms("PickBeer");
                             UnPack(targetRightHandIK, handTemp);
@@ -297,7 +351,7 @@
                         }
                         break;
 
-                    case 1:
+                    case 2:
                         if(!get){
                             UpdateIKTargetTransforms("PickCigarette");
                             UnPack(targetRightHandIK, handTemp);
@@ -309,7 +363,7 @@
                         }
                         break;
 
-                    case 2:
+                    case 3:
                         if(!get){
                             UpdateIKTargetTransforms("PickPhone");
                             UnPack(targetRightHandIK, handTemp);
@@ -320,28 +374,10 @@
                             run++;
                         }  
                         break;
-
-                    case 3:
-                        timeCount += Time.deltaTime;
-                        UpdateIKTargetTransforms("shifting");
-                        UpdateIKLook("normal", timeCount>1?1:timeCount);
-
-                        if (timeCount > 15f){
-                            if (take){
-                                run++;
-                                take = false;
-                            }
-                            else{
-                                run+=2;
-                                take = true;
-                            }
-                            timeCount = 0;
-                        }
-                        break;
-
+                    
                     case 4:
                         if(!get){
-                            UpdateIKTargetTransforms("TkoGlasses");
+                            UpdateIKTargetTransforms("Gesture");
                             UnPack(targetRightHandIK, handTemp);
                         }
                         else{
@@ -350,20 +386,7 @@
                             over = true;
                             run = 0;
                         }  
-                        break;        
-
-                    case 5:
-                        if(!get){
-                            UpdateIKTargetTransforms("WearGlasses");
-                            UnPack(targetRightHandIK, handTemp);
-                        }
-                        else{
-                            get = false;
-                            Pack(targetRightHandIK, steeringWheel);
-                            over = true;
-                            run = 0;
-                        }  
-                        break; 
+                        break;              
                 }        
             }
             else
@@ -547,82 +570,18 @@
                     case "Hat":
                         animator.SetLookAtWeight(rate);
                         animator.SetLookAtPosition(Object_E.position);
-                        break;*/
+                        break;
+                    */
                     
                     case "normal" :
                         animator.SetLookAtWeight(rate);
-                        switch (look) {
-                            case 0:
-                                animator.SetLookAtPosition(headLookIKCP.position);
-                                if (over){
-                                    look++;
-                                    over = false;
-                                }
-                                break;
-
-                            case 1:
-                                animator.SetLookAtPosition(Look_01.position);
-                                if (over){
-                                    look++;
-                                    over = false;
-                                }
-                                break;
-
-                            case 2:
-                                animator.SetLookAtPosition(Look_02.position);
-                                if (over){
-                                    look++;
-                                    over = false;
-                                }
-                                break;
-
-                            case 3:
-                                animator.SetLookAtPosition(Look_03.position);
-                                if (over){
-                                    look++;
-                                    over = false;
-                                }
-                                break;
-
-                            case 4:
-                                animator.SetLookAtPosition(Look_04.position);
-                                if (over){
-                                    look++;
-                                    over = false;
-                                }
-                                break;
-
-                            case 5:
-                                animator.SetLookAtPosition(Look_05.position);
-                                if (over){
-                                    look++;
-                                    over = false;
-                                }
-                                break;
-
-                            case 6:
-                                animator.SetLookAtPosition(Look_06.position);
-                                if (over){
-                                    look++;
-                                    over = false;
-                                }
-                                break;
-
-                            case 7:
-                                animator.SetLookAtPosition(Look_07.position);
-                                if (over){
-                                    look++;
-                                    over = false;
-                                }
-                                break;
-
-                            case 8:
-                                animator.SetLookAtPosition(Look_08.position);
-                                if (over){
-                                    look = 0;
-                                    over = false;
-                                }
-                                break;
+                        animator.SetLookAtPosition(lookTargetList[look].position);
+                        if (over){
+                            look++;
+                            over = false;
+                            if (look == look_max){
+                                look = 0;
+                            }
                         }
                         break;
                 } 
@@ -637,7 +596,8 @@
                 leftHandObj = lhswt_W;
             }
             else if (avatarSettings.steeringTargets == SteeringTargets.All)
-            {/*
+            {
+                /*
                 if (targetY >= 0.0f && targetY <= 90.0f || targetY >= 360f && targetY <= 450f)
                 {
                     leftHandObj = lhswt_W;
@@ -870,8 +830,7 @@
                             }
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_A.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, Object_A.localPosition);
-
-                            timeCount = timeCount + Time.deltaTime;
+                            timeCount += Time.deltaTime;
                             UpdateIKLook("PickBeer", timeCount);
 
                             if (angle > threthold && dist > threthold){
@@ -879,74 +838,63 @@
                                 targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_A.localRotation, timeCount * speed);
                             }
                             else{
+                                OnPickUp(Beer, Hand);
+                                UpdateIKLook("PickBeer", 0.5f);
                                 step++;
                                 init = false;
                                 timeCount = 0;
                             } 
 
                             break;
-                        case 1: 
-                            OnPickUp(Beer, Hand); 
-                            UpdateIKLook("PickBeer", 1);
-                            step++;
-                            break;
 
-                        case 2: 
+                        case 1: 
                             angle = Quaternion.Angle(targetRightHandIK.rotation, Beer_Mouth.rotation);
                             dist = Vector3.Distance(targetRightHandIK.position, Beer_Mouth.position);
-                            timeCount = timeCount + Time.deltaTime;
-                            UpdateIKLook("normal", timeCount>1?1:timeCount);
+                            timeCount += Time.deltaTime;
+                            UpdateIKLook("normal", 1);
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.position = Vector3.Lerp(targetRightHandIK.position, Beer_Mouth.position, timeCount * speed);
-                                targetRightHandIK.rotation = Quaternion.Lerp(targetRightHandIK.rotation, Beer_Mouth.rotation, timeCount * speed);
+                                targetRightHandIK.rotation = Quaternion.Lerp(targetRightHandIK.rotation, Beer_Mouth.rotation, timeCount * speed);   
                             }
                             else{
+                                time += Time.deltaTime;
+                                behaviorState[0] = true;
+                                if (time > holdingTime[0]){
+                                    step++;
+                                    time = 0;
+                                    timeCount = 0;
+                                }
+                            }
+                            break;
+
+                        case 2:
+                            angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_A.localRotation);
+                            dist = Vector3.Distance(targetRightHandIK.localPosition, Object_A.localPosition);
+                            UpdateIKLook("normal", 1);
+                            timeCount += Time.deltaTime;
+                            behaviorState[0] = false;
+                            if (angle > threthold && dist > threthold){
+                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Object_A.localPosition, timeCount * speed);
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_A.localRotation, timeCount * speed);
+                            }
+                            else{
+                                OnDrop(Beer, Object_pA);
+                                UpdateIKLook("normal", 1);
                                 step++;
                                 timeCount = 0;
                             }
                             break;
 
                         case 3:
-                            timeCount += Time.deltaTime;
-                            UpdateIKLook("normal", 1);
-                            if (timeCount > holdingTime[0]){
-                                step++;
-                                timeCount = 0;
-                            }
-                            break;
-
-                        case 4:
-                            angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_A.localRotation);
-                            dist = Vector3.Distance(targetRightHandIK.localPosition, Object_A.localPosition);
-                            UpdateIKLook("normal", 1);
-
-                            if (angle > threthold && dist > threthold){
-                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Object_A.localPosition, timeCount * speed);
-                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_A.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
-                            }
-                            else{
-                                step++;
-                                timeCount = 0;
-                            }
-                            break;
-
-                        case 5:
-                            OnDrop(Beer, Object_pA);
-                            UpdateIKLook("normal", 1);
-                            step++;
-                            break;
-
-                        case 6:
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, handTempIK.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, handTempIK.localPosition);
                             UpdateIKLook("normal", 1);
+                            timeCount += Time.deltaTime;
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, handTempIK.localPosition, timeCount * speed);
                                 targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, handTempIK.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
                             }
                             else{ 
                                 Pack(targetRightHandIK, steeringWheel);
@@ -971,14 +919,16 @@
                             }
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_D.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, Object_D.localPosition);
+                            timeCount += Time.deltaTime;
                             UpdateIKLook("PickCigarette", timeCount);
-                            timeCount = timeCount + Time.deltaTime;
-
+                            
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Object_D.localPosition, timeCount * speed);
                                 targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_D.localRotation, timeCount * speed);  
                             }
                             else{
+                                OnPickUp(Cigarette, Finger); 
+                                UpdateIKLook("PickCigarette", 0.5f);
                                 init = false;
                                 step++;
                                 timeCount = 0;
@@ -986,67 +936,54 @@
                             break;
 
                         case 1: 
-                            OnPickUp(Cigarette, Finger); 
-                            UpdateIKLook("PickCigarette", 1);
-                            step++;
-                            break;
-
-                        case 2: 
                             angle = Quaternion.Angle(targetRightHandIK.rotation, Mouth.rotation);
                             dist = Vector3.Distance(targetRightHandIK.position, Mouth.position);
-                            UpdateIKLook("normal", timeCount>1?1:timeCount);
+                            UpdateIKLook("normal", 1);
+                            timeCount += Time.deltaTime;
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.position = Vector3.Lerp(targetRightHandIK.position, Mouth.position, timeCount * speed);
-                                targetRightHandIK.rotation = Quaternion.Lerp(targetRightHandIK.rotation, Mouth.rotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
+                                targetRightHandIK.rotation = Quaternion.Lerp(targetRightHandIK.rotation, Mouth.rotation, timeCount * speed); 
                             }
                             else{
+                                behaviorState[1] = true;
+                                time += Time.deltaTime;
+                                if(time > holdingTime[1]){
+                                    step++;
+                                    time = 0;
+                                    timeCount = 0;
+                                } 
+                            }
+                            break;
+
+                        case 2:
+                            angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_D.localRotation);
+                            dist = Vector3.Distance(targetRightHandIK.localPosition, Object_D.localPosition);
+                            timeCount += Time.deltaTime;
+                            UpdateIKLook("normal", 1);
+                            behaviorState[1] = false;
+
+                            if (angle > threthold && dist > threthold){
+                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Object_D.localPosition, timeCount * speed);
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_D.localRotation, timeCount * speed); 
+                            }
+                            else{
+                                OnDrop(Cigarette, Object_pD);
+                                UpdateIKLook("normal", 1);
                                 step++;
                                 timeCount = 0;
                             }
                             break;
 
                         case 3:
-                            timeCount += Time.deltaTime;
-                            UpdateIKLook("normal", 1);
-                            if (timeCount > holdingTime[1]){
-                                step++;
-                                timeCount = 0;
-                            }
-                            break;
-
-                        case 4:
-                            angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_D.localRotation);
-                            dist = Vector3.Distance(targetRightHandIK.localPosition, Object_D.localPosition);
-                            UpdateIKLook("normal", 1);
-
-                            if (angle > threthold && dist > threthold){
-                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Object_D.localPosition, timeCount * speed);
-                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_D.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
-                            }
-                            else{
-                                step++;
-                                timeCount = 0;
-                            }
-                            break;
-
-                        case 5:
-                            OnDrop(Cigarette, Object_pD);
-                            UpdateIKLook("normal", 1);
-                            step++;
-                            break;
-
-                        case 6:
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, handTempIK.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, handTempIK.localPosition);
+                            timeCount += Time.deltaTime;
                             UpdateIKLook("normal", 1);
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, handTempIK.localPosition, timeCount * speed);
                                 targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, handTempIK.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
                             }
                             else{ 
                                 step = 0;
@@ -1070,7 +1007,7 @@
                             }
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_B.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, Object_B.localPosition);
-                            timeCount = timeCount + Time.deltaTime;
+                            timeCount += Time.deltaTime;
                             UpdateIKLook("PickPhone", timeCount);
 
                             if (angle > threthold && dist > threthold){
@@ -1078,6 +1015,8 @@
                                 targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_B.localRotation, timeCount * speed);                  
                             }
                             else{
+                                OnPickUp(Phone, phoneHand);
+                                UpdateIKLook("PickPhone", 0.5f);
                                 init = false;
                                 step++;
                                 timeCount = 0;
@@ -1086,67 +1025,54 @@
                             break;
 
                         case 1: 
-                            OnPickUp(Phone, phoneHand);
-                            UpdateIKLook("PickPhone", 1); 
-                            step++;
-                            break;
-
-                        case 2: 
                             angle = Quaternion.Angle(targetRightHandIK.rotation, Face.rotation);
                             dist = Vector3.Distance(targetRightHandIK.position, Face.position);
-                            timeCount = timeCount + Time.deltaTime;
-                            UpdateIKLook("normal", timeCount>1?1:timeCount);
+                            timeCount += Time.deltaTime;
+                            UpdateIKLook("normal", 1);
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.position = Vector3.Lerp(targetRightHandIK.position, Face.position, timeCount * speed);
                                 targetRightHandIK.rotation = Quaternion.Lerp(targetRightHandIK.rotation, Face.rotation, timeCount * speed);
                             }
                             else{
+                                behaviorState[2] = true;
+                                time += Time.deltaTime;
+                                if (time > holdingTime[2]){
+                                    step++;
+                                    time = 0;
+                                    timeCount = 0;
+                                }
+                            }
+                            break;
+
+                        case 2:
+                            angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_B.localRotation);
+                            dist = Vector3.Distance(targetRightHandIK.localPosition, Object_B.localPosition);
+                            timeCount += Time.deltaTime;
+                            UpdateIKLook("normal", 1);
+                            behaviorState[2] = false;
+
+                            if (angle > threthold && dist > threthold){
+                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Object_B.localPosition, timeCount * speed);
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_B.localRotation, timeCount * speed);    
+                            }
+                            else{
+                                OnDrop(Phone, Object_pB);
+                                UpdateIKLook("normal", 1);
                                 step++;
                                 timeCount = 0;
                             }
                             break;
 
                         case 3:
-                            timeCount += Time.deltaTime;
-                            UpdateIKLook("normal", 1);
-                            if (timeCount > holdingTime[2]){
-                                step++;
-                                timeCount = 0;
-                            }
-                            break;
-
-                        case 4:
-                            angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_B.localRotation);
-                            dist = Vector3.Distance(targetRightHandIK.localPosition, Object_B.localPosition);
-                            UpdateIKLook("normal", 1);
-
-                            if (angle > threthold && dist > threthold){
-                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Object_B.localPosition, timeCount * speed);
-                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_B.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
-                            }
-                            else{
-                                step++;
-                                timeCount = 0;
-                            }
-                            break;
-
-                        case 5:
-                            OnDrop(Phone, Object_pB);
-                            UpdateIKLook("normal", 1);
-                            step++;
-                            break;
-
-                        case 6:
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, handTempIK.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, handTempIK.localPosition);
+                            timeCount += Time.deltaTime;
                             UpdateIKLook("normal", 1);
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, handTempIK.localPosition, timeCount * speed);
-                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, handTempIK.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, handTempIK.localRotation, timeCount * speed);   
                             }
                             else{ 
                                 step = 0;
@@ -1156,7 +1082,7 @@
                             break;
                     }
                     break;
-
+                
                 case "WearGlasses":
                     targetLeftHandIK.localPosition = Vector3.Slerp(targetLeftHandIK.localPosition, leftHandObj.localPosition, avatarSettings.IKSpeed);
                     targetLeftHandIK.localRotation = Quaternion.Lerp(targetLeftHandIK.localRotation, leftHandObj.localRotation, 1);
@@ -1165,11 +1091,11 @@
                         case 0:
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, Center.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, Center.localPosition);
+                            timeCount += Time.deltaTime;
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Center.localPosition, timeCount * speed);
                                 targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Center.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
                                 if (timeCount < 0.5f){
                                     UpdateIKLook("Glasses", 2*timeCount);
                                 }
@@ -1189,14 +1115,14 @@
                             break;
 
                         case 2: 
-                            angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_C.localRotation);
-                            dist = Vector3.Distance(targetRightHandIK.localPosition, Object_C.localPosition);
+                            angle = Quaternion.Angle(targetRightHandIK.localRotation, buffer_HeadRotation);
+                            dist = Vector3.Distance(targetRightHandIK.localPosition, buffer_HeadPosition);
+                            timeCount += Time.deltaTime;
                             UpdateIKLook("normal", 1);
 
                             if (angle > threthold && dist > threthold){
-                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Object_C.localPosition, timeCount * speed);
-                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_C.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
+                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, buffer_HeadPosition, timeCount * speed);
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, buffer_HeadRotation, timeCount * speed);    
                             }
                             else{
                                 step++;
@@ -1215,15 +1141,14 @@
                         case 4:
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, handTempIK.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, handTempIK.localPosition);
+                            timeCount += Time.deltaTime;
                             UpdateIKLook("normal", 1);
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, handTempIK.localPosition, timeCount * speed);
-                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, handTempIK.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, handTempIK.localRotation, timeCount * speed); 
                             }
                             else{ 
-                                Pack(targetRightHandIK, steeringWheel);
                                 step = 0;
                                 timeCount = 0;
                                 get = true;
@@ -1241,16 +1166,18 @@
                             if(!init){
                                 buffer_OriginalPosition = Glasses.transform.localPosition;
                                 buffer_OriginalRotation = Glasses.transform.localRotation;
+                                buffer_HeadPosition = Object_C.localPosition;
+                                buffer_HeadRotation = Object_C.localRotation;
                                 init = true;
                             }
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, Object_C.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, Object_C.localPosition);
+                            timeCount += Time.deltaTime;
                             UpdateIKLook("normal", 1);
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Object_C.localPosition, timeCount * speed);
                                 targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Object_C.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
                             }
                             else{
                                 step++;
@@ -1267,12 +1194,11 @@
                         case 2: 
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, Center.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, Center.localPosition);
-                            
+                            timeCount += Time.deltaTime;
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, Center.localPosition, timeCount * speed);
                                 targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, Center.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
                                 if (timeCount < 0.5f){
                                     UpdateIKLook("Glasses", 2*timeCount);
                                 }
@@ -1295,15 +1221,14 @@
                         case 4:
                             angle = Quaternion.Angle(targetRightHandIK.localRotation, handTempIK.localRotation);
                             dist = Vector3.Distance(targetRightHandIK.localPosition, handTempIK.localPosition);
+                            timeCount += Time.deltaTime;
                             UpdateIKLook("normal", 1);
 
                             if (angle > threthold && dist > threthold){
                                 targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, handTempIK.localPosition, timeCount * speed);
-                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, handTempIK.localRotation, timeCount * speed);
-                                timeCount = timeCount + Time.deltaTime;
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, handTempIK.localRotation, timeCount * speed);  
                             }
                             else{ 
-                                Pack(targetRightHandIK, steeringWheel);
                                 step = 0;
                                 timeCount = 0;
                                 get = true;
@@ -1311,15 +1236,161 @@
                             break;
                     }
                     break;
-            }
+                    
+                case "Gesture":
+                    if (!init){
+                        for (int i = 0; i < 5; i++) {
+                            for(int j = 0; j < 3; j++){
+                                finger_rotation[i,j] = finger_list[i,j].localEulerAngles;
+                            } 
+                        }
+                        init = true;
+                    }
+                    //print("Avatar: " + Gesture.localPosition.ToString() + "," + Gesture.localRotation.ToString());
+                    float angular = 5.0f;
+                    switch (step) {
+                        case 0:
+                            angle = Quaternion.Angle(targetRightHandIK.localRotation, gestureTargetList[gestureIndex].localRotation);
+                            dist = Vector3.Distance(targetRightHandIK.localPosition, gestureTargetList[gestureIndex].localPosition);
+                            timeCount += Time.deltaTime;
+                            UpdateIKLook("normal", 1);
 
+                            if (angle > threthold && dist > threthold){
+                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, gestureTargetList[gestureIndex].localPosition, timeCount * speed);
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, gestureTargetList[gestureIndex].localRotation, timeCount * speed); 
+                            }
+                            else{
+                                behaviorState[3] = true;
+                                for (int i = 1; i < 3; i++) {
+                                    if (!gate[i]){
+                                        float angle_dist = tuneAngle(finger_list[finger, i].localEulerAngles.z);
+                                        if (angle_dist > 0){
+                                            finger_list[finger, i].localEulerAngles += new Vector3(0, 0, angular);
+                                            if (finger_list[finger, i].localEulerAngles.z < angular && finger_list[finger, i].localEulerAngles.z > -angular){
+                                                gate[i] = true;
+                                            }
+                                        }
+                                        else if (angle_dist < 0){
+                                            finger_list[finger, i].localEulerAngles -= new Vector3(0, 0, angular);
+                                            if (finger_list[finger, i].localEulerAngles.z < angular && finger_list[finger, i].localEulerAngles.z > -angular){
+                                                gate[i] = true;
+                                            }
+                                        }
+                                    }    
+                                }
+                                if (gate[1] && gate[2]){
+                                    finger ++ ;
+                                    gate[1] = gate[2] = false;
+                                }
+                                if (finger > 4){
+                                    gestureIndex++;
+                                    if (gestureIndex == gestureIndex_max){
+                                        gestureIndex = 0;
+                                    }
+                                    step++;
+                                    finger = 4;
+                                    timeCount = 0;
+                                }
+                            }
+                            break;
+
+                        case 1:
+                            angle = Quaternion.Angle(targetRightHandIK.localRotation, gestureTargetList[gestureIndex].localRotation);
+                            dist = Vector3.Distance(targetRightHandIK.localPosition, gestureTargetList[gestureIndex].localPosition);
+                            timeCount += Time.deltaTime;
+                            UpdateIKLook("normal", 1);
+                            behaviorState[3] = true;
+
+                            if (angle > threthold && dist > threthold){
+                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, gestureTargetList[gestureIndex].localPosition, timeCount * speed);
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, gestureTargetList[gestureIndex].localRotation, timeCount * speed); 
+                            }
+                            else{
+                                for (int i = 1; i < 3; i++) {
+                                    if (!gate[i]){
+                                        float angle_dist = finger_list[finger, i].localEulerAngles.z - finger_rotation[finger, i].z;
+                                        angle_dist = tuneAngle(angle_dist);
+                                        if (angle_dist > 0){
+                                            finger_list[finger, i].localEulerAngles -= new Vector3(0, 0, angular);
+                                            if (finger_list[finger, i].localEulerAngles.z < (finger_rotation[finger, i].z + angular) && finger_list[finger, i].localEulerAngles.z > (finger_rotation[finger, i].z - angular)){
+                                                gate[i] = true;
+                                            }
+                                        }
+                                        else if (angle_dist < 0){
+                                            finger_list[finger, i].localEulerAngles += new Vector3(0, 0, angular);
+                                            if ( finger_list[finger, i].localEulerAngles.z < (finger_rotation[finger, i].z + angular) && finger_list[finger, i].localEulerAngles.z > (finger_rotation[finger, i].z -angular)){
+                                                gate[i] = true;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (gate[1] && gate[2]){
+                                        finger -- ;
+                                        gate[1] = gate[2] = false;
+                                    }
+                                if (finger < 0){
+                                    gestureIndex ++ ;
+                                    if(gestureIndex == gestureIndex_max){
+                                        gestureIndex = 0;
+                                    }
+                                    step++;
+                                    finger = 0;
+                                    timeCount = 0;
+                                }
+                            }
+                            
+                            break;
+
+                        case 2:
+                            angle = Quaternion.Angle(targetRightHandIK.localRotation, handTempIK.localRotation);
+                            dist = Vector3.Distance(targetRightHandIK.localPosition, handTempIK.localPosition);
+                            timeCount += Time.deltaTime;
+                            UpdateIKLook("normal", 1);
+                            behaviorState[3] = false;
+
+                            if (angle > threthold && dist > threthold){
+                                targetRightHandIK.localPosition = Vector3.Lerp(targetRightHandIK.localPosition, handTempIK.localPosition, timeCount * speed);
+                                targetRightHandIK.localRotation = Quaternion.Lerp(targetRightHandIK.localRotation, handTempIK.localRotation, timeCount * speed); 
+                            }
+                            else{
+                                step = 0;
+                                timeCount = 0;
+                                get = true;
+                                init = false;
+                            }
+                            break;
+                    }
+                    break;
+            }
             lookPosition = headLookIKCP.localPosition;
             lookPosition.x = Mathf.Lerp(lookPosition.x, lookTargetPosX, lookObjMoveSpeed * deltaTime);
             headLookIKCP.localPosition = lookPosition;
         }
 
-        void Realistic(){
+        public void Realistic(){
             Hip.localEulerAngles = original_hip + new Vector3(Random.Range(-1,1) * 0.1f, 0, Random.Range(-1,1) * 0.1f);
+        }
+
+        public float tuneAngle(float angle){
+            while(true){
+                if (angle > 360){
+                    angle -= 360;
+                }
+                else if(angle < -360){
+                    angle += 360;
+                }
+                else{
+                    break;
+                }
+            }
+            if (angle > 180 && angle < 360){
+                angle = 360 - angle;
+            }
+            else if(angle < -180 && angle > -360){
+                angle += 360;
+            }
+
+            return angle;  
         }
 
         public void TargetShifter()
